@@ -1,7 +1,28 @@
+using Microsoft.EntityFrameworkCore;
+using RentalApp.Web.Data;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+
+// Registers AppDbContext as a scoped service: one instance per HTTP request.
+// The provider is chosen by config so the same code can target SQL Server later.
+var connectionString = builder.Configuration.GetConnectionString("Default")
+    ?? throw new InvalidOperationException("Connection string 'Default' is missing.");
+var provider = builder.Configuration["Database:Provider"];
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+{
+    switch (provider)
+    {
+        case "Sqlite":
+            options.UseSqlite(connectionString);
+            break;
+        default:
+            throw new InvalidOperationException($"Unsupported Database:Provider '{provider}'.");
+    }
+});
 
 var app = builder.Build();
 

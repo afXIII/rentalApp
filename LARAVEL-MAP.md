@@ -146,3 +146,123 @@ Paths in the last column are relative to `src/RentalApp.Web/Views/`. "Not yet" m
 | `dotnet test` | `php artisan test` |
 | `dotnet add package X` | `composer require x` |
 | `dotnet tool restore` | `composer install` for dev tools |
+
+## Phase 1: Domain + EF Core
+
+### Commands run in this phase
+
+All run from the repo root, `~/tw/dotnet/RentalApp`.
+
+**1. Add the ORM and the SQLite driver**
+
+```bash
+dotnet add src/RentalApp.Web package Microsoft.EntityFrameworkCore.Sqlite
+```
+
+`dotnet add <project> package <name>` is `composer require`. It adds a `<PackageReference>` line to `RentalApp.Web.csproj` and downloads the package. This one package brings EF Core itself plus the SQLite **provider**. A provider is what Laravel calls a database driver. In Laravel all drivers ship with the framework. In EF Core each database is its own NuGet package.
+
+**2. Add design-time support**
+
+```bash
+dotnet add src/RentalApp.Web package Microsoft.EntityFrameworkCore.Design
+```
+
+The `dotnet ef` CLI loads this from inside the project to generate migrations. In the `.csproj` it is marked `PrivateAssets="all"`, meaning dev-only, like `require-dev`.
+
+**3. Add Identity storage**
+
+```bash
+dotnet add src/RentalApp.Web package Microsoft.AspNetCore.Identity.EntityFrameworkCore
+```
+
+Provides `IdentityDbContext` and `IdentityUser`, which define the users and roles tables. Laravel: the `users` migration and `User` model that ship with a new app. Login and registration come in Phase 2.
+
+**4. Compile**
+
+```bash
+dotnet build
+```
+
+Compiles every project in the solution. This is where typos, wrong types, and missing properties are caught. PHP has no equivalent step. The closest is running PHPStan.
+
+**5. Generate a migration**
+
+```bash
+dotnet ef migrations add InitialCreate --project src/RentalApp.Web --output-dir Data/Migrations
+```
+
+Laravel: `php artisan make:migration`, with one big difference. **You do not write the migration.** EF compares your entity classes and configuration against `AppDbContextModelSnapshot.cs` (its record of the last known schema) and writes the `Up()` and `Down()` methods itself. `InitialCreate` is just the migration's name. `--project` says which project holds the context, needed because we run from the repo root. `--output-dir` is only needed the first time, later migrations go to the same folder. Undo an unapplied migration with `dotnet ef migrations remove`.
+
+It produced three files in `Data/Migrations/`:
+- `<timestamp>_InitialCreate.cs` is the migration, with `Up` and `Down`. This is the one to read.
+- `<timestamp>_InitialCreate.Designer.cs` is metadata. Never edit.
+- `AppDbContextModelSnapshot.cs` is the current full schema as EF understands it. Never edit. Commit it.
+
+**6. Apply migrations**
+
+```bash
+dotnet ef database update --project src/RentalApp.Web
+```
+
+Laravel: `php artisan migrate`. Creates `src/RentalApp.Web/rentalapp.db` and records applied migrations in the `__EFMigrationsHistory` table, which is Laravel's `migrations` table. Roll back with `dotnet ef database update <PreviousMigrationName>`, or `0` for all. In Phase 3 the app will do this automatically on startup and this command becomes optional.
+
+**7. Look at the result**
+
+```bash
+sqlite3 src/RentalApp.Web/rentalapp.db ".tables"
+sqlite3 src/RentalApp.Web/rentalapp.db ".schema Units"
+```
+
+Plain SQLite CLI, nothing .NET specific. You can also open the `.db` file in TablePlus.
+
+**8. Test**
+
+```bash
+dotnet test
+```
+
+7 tests passed.
+
+### Concepts
+
+| This repo | What it is | Laravel equivalent |
+|---|---|---|
+| `Domain/*.cs` | **Entities**: plain classes, no base class, no magic. Every column is a declared, typed property. | `app/Models/*.php` Eloquent models |
+| `Domain/ApplicationUser.cs` | Inherits `IdentityUser` to add `FullName` to the users table. | `app/Models/User.php` |
+| `Domain/ApplicationStatus.cs` | Enum. Stored as its name via `HasConversion<string>()`. | A backed PHP enum with an enum cast |
+| `public int PropertyId` + `public Property Property` in `Domain/Unit.cs` | Foreign key column plus **navigation property**. | `belongsTo()` |
+| `public List<Unit> Units` in `Domain/Property.cs` | Collection navigation. | `hasMany()` |
+| `public Lease? Lease` in `Domain/RentalApplication.cs` | One-to-one navigation. | `hasOne()` |
+| `string?` vs `string` | Nullable vs required. Drives `NULL` / `NOT NULL` in the migration. | `->nullable()` in a migration |
+| `required string Name` | The compiler forces you to set it when you `new` the object. | No equivalent |
+| `= null!` on navigation properties | "EF fills this in, do not warn me about null." A common idiom, safe here. | No equivalent |
+| `DateOnly` | A date without a time. | `'date'` cast |
+| `Data/AppDbContext.cs` | The **DbContext**: the database connection, one `DbSet` per table, and a **unit of work**. You change objects, then call `SaveChangesAsync()` once and EF writes all changes in one transaction. | `DB` facade + all models. Closest mental model: there is no `$model->save()`, only one `save everything` call |
+| `DbSet<Unit> Units` | Query entry point: `db.Units.Where(...)`. | `Unit::query()` |
+| `Data/Configurations/*.cs` (`IEntityTypeConfiguration<T>`) | Column lengths, indexes, unique constraints, delete rules. Called the **fluent API**. | The body of a migration file: `$table->string('name', 100)`, `->unique()`, `->restrictOnDelete()` |
+| `OnDelete(DeleteBehavior.Restrict / Cascade)` | Foreign key delete rule. | `->restrictOnDelete()` / `->cascadeOnDelete()` |
+| `HasIndex(u => new { u.PropertyId, u.UnitNumber }).IsUnique()` | Composite unique index. | `$table->unique(['property_id', 'unit_number'])` |
+| `Data/MoneyToCentsConverter.cs` + `HasConversion(...)` in `UnitConfiguration` | **Value converter**: decimal dollars in C#, integer cents in the `MonthlyRentCents` column. Also works inside `Where` and `OrderBy`. | Attribute cast, or accessor + mutator |
+| `Data/Migrations/` | Generated migrations. | `database/migrations/` |
+| `ConnectionStrings:Default` in `appsettings.json` | Connection string. | `DB_*` keys in `.env` |
+| `builder.Services.AddDbContext<AppDbContext>(...)` in `Program.cs` | Registers the context in the DI container as **scoped**, one instance per HTTP request. Controllers and services receive it through their constructor. | A binding in a service provider. In Laravel the DB connection is global via facades, here it is always injected. |
+
+### The mindset shift: model first, migration second
+
+In Laravel you write the migration, and the model discovers its columns at runtime. In EF Core it is the reverse: **the C# classes are the source of truth** and migrations are generated from them. The workflow for any schema change is:
+
+1. Edit an entity in `Domain/` or a rule in `Data/Configurations/`.
+2. `dotnet ef migrations add DescribeTheChange --project src/RentalApp.Web`
+3. Read the generated file to confirm it does what you meant.
+4. `dotnet ef database update --project src/RentalApp.Web`
+
+### Testing terms
+
+| xUnit | PHPUnit / Pest |
+|---|---|
+| `[Fact]` | A test method / `it(...)` |
+| `[Theory]` + `[InlineData(...)]` | `@dataProvider` / `->with([...])` |
+| `Assert.Equal(expected, actual)` | `assertEquals` |
+| `new SqliteConnection("Data Source=:memory:")` + `EnsureCreatedAsync()` | `RefreshDatabase` with `:memory:` sqlite |
+
+See `tests/RentalApp.Tests/Data/MoneyToCentsConverterTests.cs`.
