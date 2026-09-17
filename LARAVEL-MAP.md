@@ -116,15 +116,25 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:5155/
 
 ### Razor syntax vs Blade
 
-| Razor | Blade |
-|---|---|
-| `@Model.Name` | `{{ $name }}` (both HTML-escape) |
-| `@Html.Raw(x)` | `{!! $x !!}` |
-| `@if (x) { ... }` / `@foreach (var i in items) { ... }` | `@if ... @endif` / `@foreach ... @endforeach` |
-| `@model SomeViewModel` at top of file | No equivalent (views are untyped) |
-| `<partial name="_Thing" model="x" />` | `@include('thing', [...])` |
-| `@section Scripts { ... }` + `@RenderSection("Scripts")` | `@push('scripts')` + `@stack('scripts')` |
-| `<a asp-controller="Units" asp-action="Edit" asp-route-id="5">` (tag helper) | `<a href="{{ route('units.edit', 5) }}">` |
+Paths in the last column are relative to `src/RentalApp.Web/Views/`. "Not yet" means the template does not use it and it will first appear in a later phase.
+
+| Razor | Blade | See it in this repo |
+|---|---|---|
+| `@model SomeViewModel` at top of file | No equivalent (views are untyped) | `Shared/Error.cshtml` line 1 |
+| `@Model.Name` | `{{ $name }}` (both HTML-escape) | `Shared/Error.cshtml` line 12 (`@Model.RequestId`) |
+| `@if (x) { ... }` | `@if ... @endif` | `Shared/Error.cshtml` line 9 |
+| `@foreach (var i in items) { ... }` | `@foreach ... @endforeach` | Not yet. First list page in Phase 4. |
+| `@{ ... }` code block | `@php ... @endphp` | `Home/Index.cshtml` line 1, `Home/Privacy.cshtml` line 1, `_ViewStart.cshtml` line 1 |
+| `ViewData["Title"] = "x"` then `@ViewData["Title"]` | `@section('title', 'x')` then `@yield('title')` | Set in `Home/Privacy.cshtml` line 2, read in `Shared/_Layout.cshtml` line 6 |
+| `@RenderBody()` | `@yield('content')` / `{{ $slot }}` | `Shared/_Layout.cshtml` line 36 |
+| `@RenderSection("Scripts")` in the layout | `@stack('scripts')` | `Shared/_Layout.cshtml` line 48 |
+| `@section Scripts { ... }` in a page | `@push('scripts')` | Not yet. First form page in Phase 2. |
+| `<partial name="_Thing" model="x" />` | `@include('thing', [...])` | Not yet. Phase 2 forms include `_ValidationScriptsPartial`. |
+| `<a asp-controller="Home" asp-action="Privacy">` (tag helper) | `<a href="{{ route('home.privacy') }}">` | `Shared/_Layout.cshtml` lines 16, 24, 27, 42 |
+| `asp-route-id="5"` on a link | second argument to `route()` | Not yet. Edit links in Phase 4. |
+| `asp-append-version="true"` on css/js | `mix()` / Vite asset hashing | `Shared/_Layout.cshtml` lines 9, 10, 47 |
+| `~/css/site.css` (`~` means web root) | `asset('css/site.css')` | `Shared/_Layout.cshtml` line 9 |
+| `@Html.Raw(x)` | `{!! $x !!}` | Not yet. Avoided unless needed. |
 
 ### CLI
 
