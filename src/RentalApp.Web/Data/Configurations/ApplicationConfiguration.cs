@@ -16,6 +16,10 @@ public class RentalApplicationConfiguration : IEntityTypeConfiguration<RentalApp
         builder.Property(a => a.Phone).HasMaxLength(30);
         builder.Property(a => a.Email).HasMaxLength(256);
         builder.Property(a => a.CurrentAddress).HasMaxLength(300);
+        builder.Property(a => a.ManagerNotes).HasMaxLength(4000);
+
+        // Optimistic concurrency: EF puts the original value in the WHERE clause of every UPDATE.
+        builder.Property(a => a.Version).IsConcurrencyToken();
 
         // A unit or user with applications cannot be deleted.
         builder.HasOne(a => a.Unit)
@@ -26,6 +30,11 @@ public class RentalApplicationConfiguration : IEntityTypeConfiguration<RentalApp
         builder.HasOne(a => a.Applicant)
             .WithMany()
             .HasForeignKey(a => a.ApplicantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(a => a.ClaimedBy)
+            .WithMany()
+            .HasForeignKey(a => a.ClaimedById)
             .OnDelete(DeleteBehavior.Restrict);
 
         // Residences and history rows belong to the application and go with it.

@@ -1,32 +1,55 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.EntityFrameworkCore;
 using RentalApp.Web.Data;
+using RentalApp.Web.Data.Seed;
+using RentalApp.Web.Domain;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-builder.Services.AddControllersWithViews();
+builder.Services.AddControllersWithViews(options =>
+{
+    // Every POST must carry the antiforgery token rendered by <form> tag helpers (Laravel's @csrf).
+    options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
+
+    // Every action requires a signed-in user unless it is marked [AllowAnonymous].
+    options.Filters.Add(new AuthorizeFilter());
+});
 
 // Registers AppDbContext as a scoped service: one instance per HTTP request.
-// The provider is chosen by config so the same code can target SQL Server later.
 var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? throw new InvalidOperationException("Connection string 'Default' is missing.");
-var provider = builder.Configuration["Database:Provider"];
+builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(connectionString));
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-{
-    switch (provider)
+// ASP.NET Identity: users, roles, password hashing, and the sign-in cookie.
+builder.Services
+    .AddIdentity<ApplicationUser, IdentityRole>(options =>
     {
-        case "Sqlite":
-            options.UseSqlite(connectionString);
-            break;
-        default:
-            throw new InvalidOperationException($"Unsupported Database:Provider '{provider}'.");
-    }
+        options.User.RequireUniqueEmail = true;
+        options.SignIn.RequireConfirmedAccount = false;
+    })
+    .AddEntityFrameworkStores<AppDbContext>()
+    .AddDefaultTokenProviders();
+
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/Account/Login";
+    options.AccessDeniedPath = "/Account/AccessDenied";
 });
+
+// The clock is injected so tests can pin "today" (lease availability depends on it).
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<DatabaseInitializer>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// On start: create the database, apply migrations, and seed.
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    await scope.ServiceProvider.GetRequiredService<DatabaseInitializer>().InitializeAsync();
+}
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
@@ -37,6 +60,7 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseRouting();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();
@@ -45,6 +69,5 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}")
     .WithStaticAssets();
-
 
 app.Run();

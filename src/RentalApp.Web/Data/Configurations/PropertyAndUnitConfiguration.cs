@@ -42,6 +42,9 @@ public class UnitConfiguration : IEntityTypeConfiguration<Unit>
             .HasConversion(new MoneyToCentsConverter())
             .HasColumnName("MonthlyRentCents");
 
+        // Bumped on every approval for this unit, so two approvals cannot both issue a lease.
+        builder.Property(u => u.LeaseVersion).IsConcurrencyToken();
+
         // A unit number is unique within its property.
         builder.HasIndex(u => new { u.PropertyId, u.UnitNumber }).IsUnique();
 

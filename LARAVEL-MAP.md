@@ -266,3 +266,71 @@ In Laravel you write the migration, and the model discovers its columns at runti
 | `new SqliteConnection("Data Source=:memory:")` + `EnsureCreatedAsync()` | `RefreshDatabase` with `:memory:` sqlite |
 
 See `tests/RentalApp.Tests/Data/MoneyToCentsConverterTests.cs`.
+
+## Phase 2: SQL Server, Identity, sign-up and log-in
+
+The brief requires SQL Server, so SQLite was replaced. Migrations are generated for one specific database provider, so the Phase 1 migration was deleted and regenerated. Tests still use in-memory SQLite, because they build the schema with `EnsureCreated` instead of migrations.
+
+### Commands run in this phase
+
+**1. Start SQL Server in a container** (Apple `container` CLI, Docker-compatible flags)
+
+```bash
+container system start
+container volume create rentalapp-sqldata
+container run -d --name rentalapp-sql --platform linux/amd64 --rosetta -u root -c 4 -m 4G \
+  -e ACCEPT_EULA=Y -e MSSQL_PID=Developer -e 'MSSQL_SA_PASSWORD=RentalApp!Local1' \
+  -p 127.0.0.1:1434:1433 -v rentalapp-sqldata:/var/opt/mssql \
+  mcr.microsoft.com/mssql/server:2022-latest
+```
+
+SQL Server has no ARM build, so it runs under Rosetta. `-u root` is needed because the image's default `mssql` user cannot write to a fresh volume. Host port 1434 avoids clashing with another project's SQL Server on 1433. Docker equivalent: `docker run` with the same flags. Laravel Sail does the same with `sail up`. Day to day: `container start rentalapp-sql` / `container stop rentalapp-sql`.
+
+**2. Swap the provider packages**
+
+```bash
+dotnet add src/RentalApp.Web package Microsoft.EntityFrameworkCore.SqlServer --version 10.0.12
+dotnet remove src/RentalApp.Web package Microsoft.EntityFrameworkCore.Sqlite
+dotnet add tests/RentalApp.Tests package Microsoft.EntityFrameworkCore.Sqlite --version 10.0.12
+dotnet add src/RentalApp.Web package System.Security.Cryptography.Pkcs --version 10.0.13
+```
+
+The last line pins a patched version of a package that SqlClient pulls in indirectly. The build warned (`NU1903`) that the indirect version had a known vulnerability. A direct reference wins over an indirect one. Laravel: adding a constraint to `composer.json` to force a fixed version of a sub-dependency.
+
+**3. Keep the local connection string out of git**
+
+```bash
+dotnet user-secrets init --project src/RentalApp.Web
+dotnet user-secrets set "ConnectionStrings:Default" 'Server=127.0.0.1,1434;Database=RentalApp;User Id=sa;Password=RentalApp!Local1;TrustServerCertificate=True;MultipleActiveResultSets=true' --project src/RentalApp.Web
+```
+
+`init` writes a `UserSecretsId` into the `.csproj`. `set` stores the value in `~/.microsoft/usersecrets/<id>/secrets.json`, outside the repo. In Development it overrides `appsettings.json`, which keeps the LocalDB default a Windows reviewer can use as is. Laravel: `.env`, except that the file never sits in the project folder.
+
+**4. Regenerate and apply the migration**
+
+```bash
+git rm src/RentalApp.Web/Data/Migrations/*.cs
+dotnet ef migrations add InitialCreate --project src/RentalApp.Web --output-dir Data/Migrations
+dotnet ef database update --project src/RentalApp.Web
+```
+
+From now on the app also runs `MigrateAsync()` on startup (`Data/Seed/DatabaseInitializer.cs`), so `database update` is optional.
+
+### Concepts
+
+| This repo | What it is | Laravel equivalent |
+|---|---|---|
+| `AddIdentity<ApplicationUser, IdentityRole>().AddEntityFrameworkStores<AppDbContext>()` in `Program.cs` | Users, roles, password hashing, sign-in cookie. Tables come from `IdentityDbContext`. | Breeze/Fortify + `spatie/laravel-permission` |
+| `UserManager<ApplicationUser>` | Create users, hash passwords, add roles. | `User::create` + `Hash::make` + `assignRole` |
+| `SignInManager<ApplicationUser>` | Check a password and issue the cookie. | `Auth::attempt()` / `Auth::login()` |
+| `RoleManager<IdentityRole>` | Create roles. | `Role::create` (spatie) |
+| `Controllers/AccountController.cs` | Hand-written MVC sign-up, log-in, log-out. The role is chosen on sign-up. | Breeze auth controllers |
+| `Domain/Roles.cs` | Role names as constants. | Role name strings / enum |
+| `options.Filters.Add(new AuthorizeFilter())` | Every action needs a signed-in user unless it has `[AllowAnonymous]`. | `auth` middleware on the whole route group |
+| `[Authorize(Roles = Roles.PropertyManager)]` | Role gate on a controller or action. | `->middleware('role:manager')` / `Gate` |
+| `AutoValidateAntiforgeryTokenAttribute` | CSRF check on every POST. `<form>` tag helpers add the hidden token automatically. | `VerifyCsrfToken` + `@csrf` |
+| `User.IsInRole(...)` in a view | Current user's role. | `@role(...)` / `auth()->user()->hasRole()` |
+| `TempData["Success"]` + `Views/Shared/_Flash.cshtml` | One-request message that survives a redirect. | `session()->flash()` / `->with('success', ...)` |
+| `LocalRedirect(returnUrl)` + `Url.IsLocalUrl` | Redirect back after log-in, refusing off-site URLs. | `redirect()->intended()` |
+| `TimeProvider` registered as a singleton | Injectable clock so tests can pin "today". | `Carbon::setTestNow()` |
+| `dotnet user-secrets` | Developer secrets outside the repo. | `.env` |

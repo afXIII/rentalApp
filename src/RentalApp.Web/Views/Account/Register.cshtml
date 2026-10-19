@@ -1,0 +1,49 @@
+@model RentalApp.Web.Models.Account.RegisterViewModel
+@{
+    ViewData["Title"] = "Sign up";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <h1 class="h3 mb-4">Create an account</h1>
+        <form asp-action="Register" method="post" class="card card-body shadow-sm">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
+
+            <div class="mb-3">
+                <label asp-for="FullName" class="form-label"></label>
+                <input asp-for="FullName" class="form-control" autocomplete="name" />
+                <span asp-validation-for="FullName" class="text-danger small"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Email" class="form-label"></label>
+                <input asp-for="Email" class="form-control" autocomplete="username" />
+                <span asp-validation-for="Email" class="text-danger small"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Password" class="form-label"></label>
+                <input asp-for="Password" class="form-control" autocomplete="new-password" />
+                <span asp-validation-for="Password" class="text-danger small"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="ConfirmPassword" class="form-label"></label>
+                <input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" />
+                <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
+            </div>
+            <fieldset class="mb-3">
+                <legend class="form-label fs-6"><label asp-for="Role"></label></legend>
+                <div class="form-check form-check-inline">
+                    <input asp-for="Role" type="radio" value="@Roles.Applicant" id="role-applicant" class="form-check-input" />
+                    <label for="role-applicant" class="form-check-label">Applicant</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input asp-for="Role" type="radio" value="@Roles.PropertyManager" id="role-manager" class="form-check-input" />
+                    <label for="role-manager" class="form-check-label">Property manager</label>
+                </div>
+                <span asp-validation-for="Role" class="text-danger small d-block"></span>
+            </fieldset>
+
+            <button type="submit" class="btn btn-primary w-100">Sign up</button>
+            <p class="small text-muted mt-3 mb-0">Already registered? <a asp-action="Login">Log in</a></p>
+        </form>
+    </div>
+</div>

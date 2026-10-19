@@ -20,4 +20,9 @@ public class Lease
 
     // Last day of the lease, inclusive.
     public DateOnly EndDate { get; set; }
+
+    public bool Covers(DateOnly date) => StartDate <= date && date <= EndDate;
+
+    // A twelve-month term: starting 2026-01-15 ends 2027-01-14.
+    public static DateOnly EndDateFor(DateOnly startDate) => startDate.AddMonths(TermMonths).AddDays(-1);
 }
