@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using RentalApp.Web.Data;
 using RentalApp.Web.Data.Seed;
 using RentalApp.Web.Domain;
+using RentalApp.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,6 +42,8 @@ builder.Services.ConfigureApplicationCookie(options =>
 // The clock is injected so tests can pin "today" (lease availability depends on it).
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<DatabaseInitializer>();
+builder.Services.AddScoped<DataSeeder>();
+builder.Services.AddScoped<ApplicationWorkflow>();
 
 var app = builder.Build();
 

@@ -23,6 +23,17 @@ public class Lease
 
     public bool Covers(DateOnly date) => StartDate <= date && date <= EndDate;
 
-    // A twelve-month term: starting 2026-01-15 ends 2027-01-14.
-    public static DateOnly EndDateFor(DateOnly startDate) => startDate.AddMonths(TermMonths).AddDays(-1);
+    // A twelve-month term ends the day before the anniversary: starting 2026-01-15 ends 2027-01-14.
+    public static DateOnly EndDateFor(DateOnly startDate)
+    {
+        var anniversary = startDate.AddMonths(TermMonths);
+
+        // AddMonths clamps Feb 29 to Feb 28. The anniversary of a leap day is Mar 1 in a common year.
+        if (anniversary.Day != startDate.Day)
+        {
+            anniversary = anniversary.AddDays(1);
+        }
+
+        return anniversary.AddDays(-1);
+    }
 }

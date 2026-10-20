@@ -334,3 +334,45 @@ From now on the app also runs `MigrateAsync()` on startup (`Data/Seed/DatabaseIn
 | `LocalRedirect(returnUrl)` + `Url.IsLocalUrl` | Redirect back after log-in, refusing off-site URLs. | `redirect()->intended()` |
 | `TimeProvider` registered as a singleton | Injectable clock so tests can pin "today". | `Carbon::setTestNow()` |
 | `dotnet user-secrets` | Developer secrets outside the repo. | `.env` |
+
+## Phase 3: Business rules, seeding, tests
+
+### Commands run in this phase
+
+```bash
+dotnet add src/RentalApp.Web package Bogus
+dotnet ef migrations has-pending-model-changes --project src/RentalApp.Web
+dotnet test
+```
+
+`has-pending-model-changes` checks whether the entities have drifted from the last migration without generating anything. It is useful before committing. Laravel has no equivalent, because there the migration is the source of truth. The app was then started twice, and the row counts in SQL Server were compared to confirm the seeder is idempotent:
+
+```bash
+container exec rentalapp-sql /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'RentalApp!Local1' -d RentalApp \
+  -Q "select Status, count(*) from RentalApplications group by Status"
+```
+
+Laravel: `php artisan tinker` or `DB::table(...)->count()`.
+
+### Concepts
+
+| This repo | What it is | Laravel equivalent |
+|---|---|---|
+| `Domain/RentalApplication.cs` methods `Submit`, `Claim`, `Approve`, ... | The status machine lives on the entity. `Status { get; private set; }` means only the class itself can change it. EF can still write private setters when loading. | Model methods + `$guarded`, or a state machine package |
+| `DomainRuleException` | A business rule was broken. Controllers turn it into a message for the user. | `ValidationException::withMessages()` / `abort(422)` |
+| `Services/ApplicationWorkflow.cs` | A use-case class: loads, calls the domain, saves. Registered with `AddScoped` and constructor-injected. | An Action / Service class resolved from the container |
+| `Include(a => a.Unit).ThenInclude(u => u.Leases)` | Eager loading. | `with('unit.leases')` |
+| `Expression<Func<Unit, bool>> IsAvailableOn(date)` in `Unit.cs` | A reusable filter EF translates to SQL. | A local query scope `scopeAvailable()` |
+| `.IsConcurrencyToken()` on `Version` / `LeaseVersion` | **Optimistic concurrency.** EF adds `WHERE Version = <read value>` to the UPDATE. If another request changed it first, zero rows match and EF throws `DbUpdateConcurrencyException`. | No built-in. Done by hand with `where('version', $v)->update()` and checking affected rows |
+| `Data/Seed/DataSeeder.cs` with `Faker` | Fake data with a fixed random seed, so every run generates the same names and numbers. | `DatabaseSeeder` + factories using Faker |
+| `Data/Seed/DatabaseInitializer.cs` | Migrate, then seed, on every start. Each step checks before inserting. | `migrate --seed` in a deploy script, with `firstOrCreate` |
+
+### Testing terms
+
+| This repo | What it is | PHPUnit / Pest |
+|---|---|---|
+| `tests/.../Support/FixedClock.cs` | A `TimeProvider` subclass frozen at one instant. | `Carbon::setTestNow()` |
+| `tests/.../Support/TestDatabase.cs` | In-memory SQLite. `CreateContext()` returns a second context on the same data, which simulates two concurrent requests. | `RefreshDatabase` |
+| `tests/.../Data/DataSeederTests.cs` `new ServiceCollection()...BuildServiceProvider()` | Builds a mini DI container with only what the seeder needs. | `$this->app->make(...)` |
+| `Assert.Throws<T>(() => ...)` / `await Assert.ThrowsAsync<T>(...)` | Expect an exception. | `expectException()` / `->throws()` |
+| `using static ...Applications;` | Lets tests call `Draft()` instead of `Applications.Draft()`. | `use function` |

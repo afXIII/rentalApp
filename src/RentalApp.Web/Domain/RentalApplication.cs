@@ -71,6 +71,14 @@ public class RentalApplication
 
     // ---- Applicant actions ----
 
+    // Copies account details into a new draft. Does not mark the section as saved.
+    public void PrefillApplicantInfo(string? fullName, string? phone, string? email)
+    {
+        FullName ??= fullName;
+        Phone ??= phone;
+        Email ??= email;
+    }
+
     public void SaveApplicantInfo(string userId, string fullName, string phone, string email, string currentAddress, DateTime now)
     {
         EnsureEditableBy(userId);
@@ -105,13 +113,19 @@ public class RentalApplication
         }
     }
 
-    // `unit` must be loaded with its Leases.
+    // `unit` must be loaded with its Leases, and this application with its Residences.
     public void Submit(string userId, Unit unit, DateOnly today, DateTime now)
     {
         EnsureEditableBy(userId);
         if (!AllSectionsSaved)
         {
             throw new DomainRuleException("Save both sections before submitting.");
+        }
+
+        // Residences can be removed after the section was saved, so check again.
+        if (Residences.Count == 0)
+        {
+            throw new DomainRuleException("Add at least one prior residence.");
         }
 
         EnsureUnitHasNoActiveLease(unit, today);
