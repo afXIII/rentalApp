@@ -61,6 +61,9 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// One culture for dates, currency, and decimal parsing, whatever the server's locale.
+app.UseRequestLocalization("en-US");
 app.UseRouting();
 
 app.UseAuthentication();

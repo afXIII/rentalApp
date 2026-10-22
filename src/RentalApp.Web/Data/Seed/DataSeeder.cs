@@ -47,7 +47,6 @@ public class DataSeeder(AppDbContext db, UserManager<ApplicationUser> userManage
     private readonly Faker faker = new("en") { Random = new Randomizer(20261023) };
 
     private DateTime Now => clock.GetUtcNow().UtcDateTime;
-    private DateOnly Today => DateOnly.FromDateTime(clock.GetLocalNow().DateTime);
 
     public async Task SeedAsync()
     {

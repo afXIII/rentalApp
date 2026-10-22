@@ -12,6 +12,16 @@ html {
   box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
 }
 
+/* asp-validation-summary renders an empty box when there are no errors. Hide it. */
+.validation-summary-valid {
+  display: none;
+}
+
+.validation-summary-errors ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
 .table td, .table th {
   vertical-align: middle;
 }

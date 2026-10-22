@@ -376,3 +376,40 @@ Laravel: `php artisan tinker` or `DB::table(...)->count()`.
 | `tests/.../Data/DataSeederTests.cs` `new ServiceCollection()...BuildServiceProvider()` | Builds a mini DI container with only what the seeder needs. | `$this->app->make(...)` |
 | `Assert.Throws<T>(() => ...)` / `await Assert.ThrowsAsync<T>(...)` | Expect an exception. | `expectException()` / `->throws()` |
 | `using static ...Applications;` | Lets tests call `Draft()` instead of `Applications.Draft()`. | `use function` |
+
+## Phase 4: Properties, units, and unit types through modals
+
+No new packages or CLI commands. The endpoints were smoke-tested with `curl` against the running app. That meant logging in with a cookie jar, reading the antiforgery token from the form partial, and POSTing with it, checking for 204 on success and 422 on validation errors.
+
+### The modal protocol
+
+`wwwroot/js/site.js` handles every modal in the app. A button carries `data-modal-url` (the GET that returns the form partial) and either `data-refresh-target` + `data-refresh-url` (the region to re-fetch on success) or `data-refresh="page"`.
+
+| Step | Server (`Controllers/AppController.cs`) | Laravel equivalent |
+|---|---|---|
+| Open | `return PartialView("_UnitForm", model);` | `return view('units._form', ...)` returned to an AJAX call |
+| Invalid | `InvalidModal(...)`: status **422** + the same partial, now with errors | A 422 from `$request->validate()`, but carrying HTML instead of JSON |
+| Saved | `ModalSuccess()`: **204 No Content** | `return response()->noContent();` |
+| Refresh | `Units/Table` returns the `_UnitTable` partial again | A route that returns just a Blade partial (Livewire / htmx style) |
+
+### Concepts
+
+| This repo | What it is | Laravel equivalent |
+|---|---|---|
+| `Controllers/AppController.cs` | A base controller with shared helpers. | `app/Http/Controllers/Controller.php` |
+| `PartialView("_Name", model)` | Renders a view without the layout. A leading `_` marks a partial by convention. | `view('partials.name')` with no `@extends` |
+| `<partial name="_UnitTable" model="Model.Units" />` | Includes a partial with its own model. | `@include('units.table', ['units' => ...])` |
+| `Views/Shared/` | Partials found from any controller's views. | Any shared Blade folder |
+| `asp-for="UnitNumber"` | Generates `id`, `name`, `value` and client-validation attributes from the view model property. | `name="unit_number" value="{{ old('unit_number', $unit->unit_number) }}"` plus `@error` |
+| `<span asp-validation-for="X">` / `<div asp-validation-summary="ModelOnly">` | One field's error / errors not tied to a field. | `@error('x')` / `$errors->first()` |
+| `<select asp-for="UnitTypeId" asp-items="Model.UnitTypeOptions">` | A dropdown from a list of `SelectListItem`. | `@foreach ($types as $t) <option ...>` |
+| `[Required]`, `[StringLength]`, `[Range]` on view model properties | Validation rules, checked during model binding. Also emitted as `data-val-*` attributes for jQuery client-side validation. | `$request->validate([...])` rules |
+| `ModelState.IsValid` / `ModelState.AddModelError("Field", "msg")` | Result of validation / add a server-side error (for example a database check). | `$validator->fails()` / `$validator->errors()->add()` |
+| `[ValidateNever]` | Excludes a property from validation (dropdown options are output, not input). | Not listing it in the rules |
+| `[HttpPost, ActionName(nameof(Delete))] DeleteConfirmed(int id)` | Two C# methods cannot share a signature, so the POST gets another name and is routed as `Delete`. | Two routes to two methods |
+| `Url.Action("Edit", "Units", new { id })` | Builds a URL from routing. | `route('units.edit', $id)` |
+| `.Select(u => new UnitRowViewModel { ... })` | **Projection**: EF selects only those columns in one SQL query, including counts and sub-queries. No N+1. | `->select()` + `withCount()` |
+| `db.Units.FindAsync(id)` | Load by primary key (checks already-tracked entities first). | `Unit::find($id)` |
+| `AsNoTracking()` | Read-only query. EF does not watch the objects for changes, which is cheaper. | No equivalent (Eloquent never tracks) |
+| `UnitType.IsSelectableFor(currentTypeId)` checked in `UnitsController.ValidateAsync` | The inactive-type rule is enforced on POST, not only by hiding options. | A custom validation `Rule` |
+| `app.UseRequestLocalization("en-US")` | Fixes the culture for `ToString("C")`, dates, and decimal parsing. | `App::setLocale()` + `setlocale()` |

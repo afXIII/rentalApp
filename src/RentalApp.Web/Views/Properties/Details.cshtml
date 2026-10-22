@@ -1,0 +1,25 @@
+@model RentalApp.Web.Models.Properties.PropertyDetailsViewModel
+@{
+    ViewData["Title"] = Model.Name;
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-action="Index">Properties</a></li>
+        <li class="breadcrumb-item active" aria-current="page">@Model.Name</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+        <h1 class="h3 mb-1">@Model.Name</h1>
+        <p class="text-muted mb-0">@Model.Address</p>
+    </div>
+    <button type="button" class="btn btn-primary"
+            data-modal-url="@Url.Action("Create", "Units", new { propertyId = Model.Id })"
+            data-refresh-target="#unit-table" data-refresh-url="@Url.Action("Table", "Units", new { propertyId = Model.Id })">
+        Add unit
+    </button>
+</div>
+
+<partial name="_UnitTable" model="Model.Units" />

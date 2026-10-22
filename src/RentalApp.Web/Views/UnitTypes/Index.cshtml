@@ -1,0 +1,18 @@
+@model IReadOnlyList<RentalApp.Web.Models.Properties.UnitTypeRowViewModel>
+@{
+    ViewData["Title"] = "Unit types";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3 mb-1">Unit types</h1>
+        <p class="text-muted mb-0 small">An inactive type stays on the units that already use it but cannot be chosen for any other unit.</p>
+    </div>
+    <button type="button" class="btn btn-primary"
+            data-modal-url="@Url.Action("Create")"
+            data-refresh-target="#unit-type-table" data-refresh-url="@Url.Action("Table")">
+        Add unit type
+    </button>
+</div>
+
+<partial name="_UnitTypeTable" model="Model" />

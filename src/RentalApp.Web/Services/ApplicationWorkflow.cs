@@ -10,8 +10,7 @@ public class ApplicationWorkflow(AppDbContext db, TimeProvider clock)
 {
     private DateTime Now => clock.GetUtcNow().UtcDateTime;
 
-    // "Today" for lease terms is the calendar date where the business operates (server local time).
-    public DateOnly Today => DateOnly.FromDateTime(clock.GetLocalNow().DateTime);
+    private DateOnly Today => clock.Today();
 
     // Everything a status change needs: residences for the Submit check, the unit's leases for the lease check.
     public Task<RentalApplication?> FindForUpdateAsync(int id) =>

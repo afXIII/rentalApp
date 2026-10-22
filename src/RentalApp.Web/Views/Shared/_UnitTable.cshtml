@@ -1,0 +1,60 @@
+@model RentalApp.Web.Models.Properties.UnitTableViewModel
+@{
+    var refreshUrl = Url.Action("Table", "Units", new { propertyId = Model.PropertyId });
+}
+
+<div id="unit-table" class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Unit</th>
+                    <th>Type</th>
+                    <th class="text-end">Bedrooms</th>
+                    <th class="text-end">Monthly rent</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var unit in Model.Rows)
+                {
+                    <tr>
+                        <td class="fw-semibold">@unit.UnitNumber</td>
+                        <td>
+                            @unit.UnitTypeName
+                            @if (!unit.UnitTypeIsActive)
+                            {
+                                <span class="badge text-bg-secondary ms-1">inactive</span>
+                            }
+                        </td>
+                        <td class="text-end">@(unit.Bedrooms == 0 ? "Studio" : unit.Bedrooms.ToString())</td>
+                        <td class="text-end">@unit.MonthlyRent.ToString("C")</td>
+                        <td>
+                            @if (unit.LeasedUntil is { } until)
+                            {
+                                <span class="badge text-bg-warning">Leased until @until.ToString("MMM d, yyyy")</span>
+                            }
+                            else
+                            {
+                                <span class="badge text-bg-success">Available</span>
+                            }
+                        </td>
+                        <td class="text-end text-nowrap">
+                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                    data-modal-url="@Url.Action("Edit", "Units", new { id = unit.Id })"
+                                    data-refresh-target="#unit-table" data-refresh-url="@refreshUrl">Edit</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                    data-modal-url="@Url.Action("Delete", "Units", new { id = unit.Id })"
+                                    data-refresh-target="#unit-table" data-refresh-url="@refreshUrl">Remove</button>
+                        </td>
+                    </tr>
+                }
+                @if (Model.Rows.Count == 0)
+                {
+                    <tr><td colspan="6" class="text-center text-muted py-4">No units yet.</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

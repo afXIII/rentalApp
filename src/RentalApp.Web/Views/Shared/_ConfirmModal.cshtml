@@ -1,0 +1,16 @@
+@model RentalApp.Web.Models.Shared.ConfirmViewModel
+
+<form action="@Model.ActionUrl" method="post" asp-antiforgery="true">
+    <div class="modal-header">
+        <h5 class="modal-title">@Model.Title</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    </div>
+    <div class="modal-body">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2"></div>
+        <p class="mb-0">@Model.Message</p>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn @Model.ButtonClass">@Model.ButtonText</button>
+    </div>
+</form>
