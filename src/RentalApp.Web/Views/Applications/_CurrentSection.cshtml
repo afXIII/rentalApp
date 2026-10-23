@@ -1,0 +1,16 @@
+@model RentalApp.Web.Models.Applications.ApplicationPageViewModel
+@using RentalApp.Web.Models.Applications
+
+@switch (Model.Step)
+{
+    case ApplicationStep.ApplicantInfo:
+        <partial name="_ApplicantInfoSection" model="Model" />
+        break;
+    case ApplicationStep.ResidenceHistory:
+        <p class="text-muted small">List the places you have lived before your current address.</p>
+        <vc:residence-history application-id="Model.Id" editable="Model.IsEditing(ApplicationStep.ResidenceHistory)"></vc:residence-history>
+        break;
+    default:
+        <partial name="_SummarySection" model="Model" />
+        break;
+}

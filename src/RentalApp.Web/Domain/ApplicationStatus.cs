@@ -16,8 +16,11 @@ public enum ApplicationStatus
 public static class ApplicationStatusExtensions
 {
     // Approved, Denied, and Withdrawn are final. No transition leaves them.
-    public static bool IsTerminal(this ApplicationStatus status) =>
-        status is ApplicationStatus.Approved or ApplicationStatus.Denied or ApplicationStatus.Withdrawn;
+    // An array so queries can use Terminal.Contains(a.Status), which EF translates to SQL IN (...).
+    public static readonly ApplicationStatus[] Terminal =
+        [ApplicationStatus.Approved, ApplicationStatus.Denied, ApplicationStatus.Withdrawn];
+
+    public static bool IsTerminal(this ApplicationStatus status) => Terminal.Contains(status);
 
     // The applicant may change the application only in these statuses.
     public static bool IsEditable(this ApplicationStatus status) =>

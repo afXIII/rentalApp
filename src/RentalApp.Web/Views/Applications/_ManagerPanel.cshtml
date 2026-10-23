@@ -1,0 +1,15 @@
+@model RentalApp.Web.Models.Applications.ApplicationPageViewModel
+
+<div class="card shadow-sm">
+    <div class="card-header bg-white fw-semibold">Review</div>
+    <div class="card-body">
+        @if (Model.ClaimedByName is not null)
+        {
+            <p class="small mb-0">Claimed by <strong>@Model.ClaimedByName</strong></p>
+        }
+        else
+        {
+            <p class="small text-muted mb-0">Not claimed.</p>
+        }
+    </div>
+</div>

@@ -1,0 +1,108 @@
+@model RentalApp.Web.Models.Applications.ApplicationPageViewModel
+@using RentalApp.Web.Models.Applications
+@{
+    ViewData["Title"] = $"Application #{Model.Id}";
+    (ApplicationStep Step, string Label)[] steps =
+    [
+        (ApplicationStep.ApplicantInfo, "Applicant information"),
+        (ApplicationStep.ResidenceHistory, "Residence history"),
+        (ApplicationStep.Summary, "Summary"),
+    ];
+    var current = Array.FindIndex(steps, s => s.Step == Model.Step);
+}
+
+<partial name="_ApplicationHeader" model="Model" />
+
+<div class="row g-3">
+    <div class="@(Model.IsManager ? "col-lg-8" : "col-12")">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                @* Stepper. While editing, only saved sections can be jumped to; read-only viewers can open any section. *@
+                <nav class="stepper d-flex flex-wrap gap-4 py-1" aria-label="Sections">
+                    @for (var i = 0; i < steps.Length; i++)
+                    {
+                        var (step, label) = steps[i];
+                        var css = step == Model.Step ? "active" : Model.IsSaved(step) ? "done" : "";
+                        var linkable = step != Model.Step && (!Model.CanEdit || Model.IsSaved(step) || step < Model.Step);
+                        if (linkable)
+                        {
+                            <a class="step @css" asp-action="Details" asp-route-id="@Model.Id" asp-route-step="@step">
+                                <span class="num">@(i + 1)</span>@label
+                            </a>
+                        }
+                        else
+                        {
+                            <span class="step @css" aria-current="@(step == Model.Step ? "step" : null)">
+                                <span class="num">@(i + 1)</span>@label
+                            </span>
+                        }
+                    }
+                </nav>
+            </div>
+
+            @if (Model.CanEdit)
+            {
+                @* One form posting to one action. The clicked button's value ("command") decides what happens. *@
+                <form asp-action="Details" asp-route-id="@Model.Id" method="post">
+                    <input type="hidden" name="step" value="@Model.Step" />
+                    <div class="card-body">
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2"></div>
+                        <partial name="_CurrentSection" model="Model" />
+                    </div>
+                    <div class="card-footer bg-white d-flex justify-content-between">
+                        @if (Model.Step != ApplicationStep.ApplicantInfo)
+                        {
+                            @* formnovalidate + .cancel: skip client-side validation, Back never saves. *@
+                            <button type="submit" name="command" value="@ApplicationCommand.Back"
+                                    class="btn btn-outline-secondary cancel" formnovalidate>Back</button>
+                        }
+                        else
+                        {
+                            <span></span>
+                        }
+
+                        @if (Model.Step == ApplicationStep.Summary)
+                        {
+                            <button type="submit" name="command" value="@ApplicationCommand.Submit"
+                                    class="btn btn-success" disabled="@(!Model.CanSubmit)">Submit application</button>
+                        }
+                        else
+                        {
+                            <button type="submit" name="command" value="@ApplicationCommand.Continue" class="btn btn-primary">
+                                Save and continue
+                            </button>
+                        }
+                    </div>
+                </form>
+            }
+            else
+            {
+                <div class="card-body">
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2"></div>
+                    <partial name="_CurrentSection" model="Model" />
+                </div>
+                <div class="card-footer bg-white d-flex justify-content-between">
+                    @if (current > 0)
+                    {
+                        <a class="btn btn-outline-secondary" asp-action="Details" asp-route-id="@Model.Id" asp-route-step="@steps[current - 1].Step">Back</a>
+                    }
+                    else
+                    {
+                        <span></span>
+                    }
+                    @if (current < steps.Length - 1)
+                    {
+                        <a class="btn btn-outline-primary" asp-action="Details" asp-route-id="@Model.Id" asp-route-step="@steps[current + 1].Step">Next</a>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    @if (Model.IsManager)
+    {
+        <div class="col-lg-4">
+            <partial name="_ManagerPanel" model="Model" />
+        </div>
+    }
+</div>

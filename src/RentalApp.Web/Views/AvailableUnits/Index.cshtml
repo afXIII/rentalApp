@@ -1,0 +1,77 @@
+@model RentalApp.Web.Models.Applications.AvailableUnitsViewModel
+@{
+    ViewData["Title"] = "Available units";
+}
+
+<h1 class="h3 mb-3">Available units</h1>
+
+<form method="get" class="card card-body shadow-sm mb-3">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-4">
+            <label for="propertyId" class="form-label small">Property</label>
+            <select id="propertyId" name="propertyId" class="form-select"
+                    asp-items="new SelectList(Model.PropertyOptions, nameof(SelectListItem.Value), nameof(SelectListItem.Text), Model.PropertyId)">
+                <option value="">All properties</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="minBedrooms" class="form-label small">Bedrooms (min)</label>
+            <input id="minBedrooms" name="minBedrooms" type="number" min="0" max="10" value="@Model.MinBedrooms" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label for="maxRent" class="form-label small">Max monthly rent</label>
+            <input id="maxRent" name="maxRent" type="number" min="0" step="50" value="@Model.MaxRent" class="form-control" />
+        </div>
+        <div class="col-md-2 d-flex gap-2">
+            <button type="submit" class="btn btn-primary flex-fill">Filter</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Clear</a>
+        </div>
+    </div>
+</form>
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Property</th>
+                    <th>Unit</th>
+                    <th>Type</th>
+                    <th class="text-end">Bedrooms</th>
+                    <th class="text-end">Monthly rent</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var unit in Model.Rows)
+                {
+                    <tr>
+                        <td>@unit.PropertyName<br /><span class="small text-muted">@unit.Address</span></td>
+                        <td class="fw-semibold">@unit.UnitNumber</td>
+                        <td>@unit.UnitTypeName</td>
+                        <td class="text-end">@(unit.Bedrooms == 0 ? "Studio" : unit.Bedrooms.ToString())</td>
+                        <td class="text-end">@unit.MonthlyRent.ToString("C")</td>
+                        <td class="text-end">
+                            @if (unit.OpenApplicationId is { } applicationId)
+                            {
+                                <a asp-controller="Applications" asp-action="Details" asp-route-id="@applicationId"
+                                   class="btn btn-sm btn-outline-primary">View my application</a>
+                            }
+                            else
+                            {
+                                <form asp-controller="Applications" asp-action="Create" method="post" class="d-inline">
+                                    <input type="hidden" name="unitId" value="@unit.UnitId" />
+                                    <button type="submit" class="btn btn-sm btn-primary">Apply</button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+                @if (Model.Rows.Count == 0)
+                {
+                    <tr><td colspan="6" class="text-center text-muted py-4">No units match these filters.</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

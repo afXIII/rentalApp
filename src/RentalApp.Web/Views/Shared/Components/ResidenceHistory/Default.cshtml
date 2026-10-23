@@ -1,0 +1,63 @@
+@model RentalApp.Web.Models.Applications.ResidenceHistoryViewModel
+@{
+    var refreshUrl = Url.Action("List", "Residences", new { applicationId = Model.ApplicationId });
+}
+
+<div id="residence-history">
+    @if (Model.IsEditable)
+    {
+        <div class="d-flex justify-content-end mb-2">
+            <button type="button" class="btn btn-sm btn-outline-primary"
+                    data-modal-url="@Url.Action("Create", "Residences", new { applicationId = Model.ApplicationId })"
+                    data-refresh-target="#residence-history" data-refresh-url="@refreshUrl">
+                Add residence
+            </button>
+        </div>
+    }
+
+    @if (Model.Rows.Count == 0)
+    {
+        <p class="text-muted fst-italic mb-0">No prior residences added.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead>
+                    <tr>
+                        <th>Address</th>
+                        <th>Landlord</th>
+                        <th>Moved in</th>
+                        <th>Moved out</th>
+                        @if (Model.IsEditable)
+                        {
+                            <th></th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var residence in Model.Rows)
+                    {
+                        <tr>
+                            <td>@residence.Address</td>
+                            <td>@residence.LandlordName<br /><span class="small text-muted">@residence.LandlordPhone</span></td>
+                            <td class="text-nowrap">@residence.MoveInDate.ToString("MMM d, yyyy")</td>
+                            <td class="text-nowrap">@residence.MoveOutDate.ToString("MMM d, yyyy")</td>
+                            @if (Model.IsEditable)
+                            {
+                                <td class="text-end text-nowrap">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                            data-modal-url="@Url.Action("Edit", "Residences", new { id = residence.Id })"
+                                            data-refresh-target="#residence-history" data-refresh-url="@refreshUrl">Edit</button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger"
+                                            data-modal-url="@Url.Action("Delete", "Residences", new { id = residence.Id })"
+                                            data-refresh-target="#residence-history" data-refresh-url="@refreshUrl">Remove</button>
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

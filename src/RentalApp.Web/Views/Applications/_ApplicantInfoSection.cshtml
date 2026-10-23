@@ -1,0 +1,45 @@
+@model RentalApp.Web.Models.Applications.ApplicationPageViewModel
+@using RentalApp.Web.Models.Applications
+@{
+    // Server-side decision made in ApplicationPageBuilder: owner + Draft/Returned + this is the current section.
+    var editing = Model.IsEditing(ApplicationStep.ApplicantInfo);
+}
+
+@if (editing)
+{
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label asp-for="ApplicantInfo.FullName" class="form-label"></label>
+            <input asp-for="ApplicantInfo.FullName" class="form-control" autocomplete="name" />
+            <span asp-validation-for="ApplicantInfo.FullName" class="text-danger small"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="ApplicantInfo.Phone" class="form-label"></label>
+            <input asp-for="ApplicantInfo.Phone" class="form-control" autocomplete="tel" />
+            <span asp-validation-for="ApplicantInfo.Phone" class="text-danger small"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="ApplicantInfo.Email" class="form-label"></label>
+            <input asp-for="ApplicantInfo.Email" class="form-control" autocomplete="email" />
+            <span asp-validation-for="ApplicantInfo.Email" class="text-danger small"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="ApplicantInfo.CurrentAddress" class="form-label"></label>
+            <input asp-for="ApplicantInfo.CurrentAddress" class="form-control" autocomplete="street-address" />
+            <span asp-validation-for="ApplicantInfo.CurrentAddress" class="text-danger small"></span>
+        </div>
+    </div>
+}
+else
+{
+    <dl class="row readonly mb-0">
+        <dt class="col-sm-3">Full name</dt>
+        <dd class="col-sm-9">@(Model.ApplicantInfo.FullName ?? "Not provided")</dd>
+        <dt class="col-sm-3">Phone</dt>
+        <dd class="col-sm-9">@(Model.ApplicantInfo.Phone ?? "Not provided")</dd>
+        <dt class="col-sm-3">Email</dt>
+        <dd class="col-sm-9">@(Model.ApplicantInfo.Email ?? "Not provided")</dd>
+        <dt class="col-sm-3">Current address</dt>
+        <dd class="col-sm-9 mb-0">@(Model.ApplicantInfo.CurrentAddress ?? "Not provided")</dd>
+    </dl>
+}

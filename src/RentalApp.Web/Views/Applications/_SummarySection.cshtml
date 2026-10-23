@@ -1,0 +1,35 @@
+@model RentalApp.Web.Models.Applications.ApplicationPageViewModel
+@using RentalApp.Web.Models.Applications
+
+@* Read-only view of both sections. The same section partial and view component render here,
+   read-only because the current step is Summary. *@
+<h2 class="h6 text-uppercase text-muted">Applicant information</h2>
+<div class="mb-4">
+    <partial name="_ApplicantInfoSection" model="Model" />
+</div>
+
+<h2 class="h6 text-uppercase text-muted">Residence history</h2>
+<div class="mb-3">
+    <vc:residence-history application-id="Model.Id" editable="false"></vc:residence-history>
+</div>
+
+@if (Model.CanEdit && !Model.CanSubmit)
+{
+    <div class="alert alert-warning mb-0">
+        <div class="fw-semibold">Before you can submit:</div>
+        <ul class="mb-0">
+            @if (!Model.ApplicantInfoSaved)
+            {
+                <li>Save the Applicant Information section.</li>
+            }
+            @if (!Model.ResidenceHistorySaved)
+            {
+                <li>Save the Residence History section.</li>
+            }
+            @if (Model.ResidenceCount == 0)
+            {
+                <li>Add at least one prior residence.</li>
+            }
+        </ul>
+    </div>
+}

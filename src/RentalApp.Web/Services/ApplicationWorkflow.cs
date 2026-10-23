@@ -25,9 +25,7 @@ public class ApplicationWorkflow(AppDbContext db, TimeProvider clock)
     {
         var existing = await db.RentalApplications
             .Where(a => a.UnitId == unitId && a.ApplicantId == applicantId)
-            .Where(a => a.Status != ApplicationStatus.Approved
-                        && a.Status != ApplicationStatus.Denied
-                        && a.Status != ApplicationStatus.Withdrawn)
+            .Where(a => !ApplicationStatusExtensions.Terminal.Contains(a.Status))
             .FirstOrDefaultAsync();
         if (existing is not null)
         {

@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Authorization;
@@ -37,6 +39,25 @@ builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/Account/Login";
     options.AccessDeniedPath = "/Account/AccessDenied";
+
+    // AJAX (modal) and API callers get a status code instead of a redirect to an HTML page.
+    options.Events.OnRedirectToLogin = context => StatusOrRedirect(context, StatusCodes.Status401Unauthorized);
+    options.Events.OnRedirectToAccessDenied = context => StatusOrRedirect(context, StatusCodes.Status403Forbidden);
+
+    static Task StatusOrRedirect(RedirectContext<CookieAuthenticationOptions> context, int statusCode)
+    {
+        var request = context.Request;
+        if (request.Headers.XRequestedWith == "XMLHttpRequest" || request.Path.StartsWithSegments("/api"))
+        {
+            context.Response.StatusCode = statusCode;
+        }
+        else
+        {
+            context.Response.Redirect(context.RedirectUri);
+        }
+
+        return Task.CompletedTask;
+    }
 });
 
 // The clock is injected so tests can pin "today" (lease availability depends on it).
@@ -44,6 +65,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<DatabaseInitializer>();
 builder.Services.AddScoped<DataSeeder>();
 builder.Services.AddScoped<ApplicationWorkflow>();
+builder.Services.AddScoped<ApplicationPageBuilder>();
 
 var app = builder.Build();
 

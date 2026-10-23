@@ -413,3 +413,51 @@ No new packages or CLI commands. The endpoints were smoke-tested with `curl` aga
 | `AsNoTracking()` | Read-only query. EF does not watch the objects for changes, which is cheaper. | No equivalent (Eloquent never tracks) |
 | `UnitType.IsSelectableFor(currentTypeId)` checked in `UnitsController.ValidateAsync` | The inactive-type rule is enforced on POST, not only by hiding options. | A custom validation `Rule` |
 | `app.UseRequestLocalization("en-US")` | Fixes the culture for `ToString("C")`, dates, and decimal parsing. | `App::setLocale()` + `setlocale()` |
+
+## Phase 5: Browse units, the application page, residences
+
+### Commands run in this phase
+
+No new packages. After a reboot the container service has to be started again before the app can reach SQL Server:
+
+```bash
+container system start
+container start rentalapp-sql
+container logs rentalapp-sql | tail     # wait for "Recovery is complete"
+```
+
+Laravel Sail: `sail up -d`. The applicant flow was then smoke-tested with `curl`: apply, continue with invalid data, continue with valid data, add a residence through the modal endpoint, submit, then try to edit again (rejected), and withdraw.
+
+### How the application page works
+
+One URL (`/Applications/Details/{id}?step=...`), one view model (`Models/Applications/ApplicationPageViewModel.cs`), one form, one POST action (`ApplicationsController.Details`).
+
+| Piece | File | Laravel equivalent |
+|---|---|---|
+| Page | `Views/Applications/Details.cshtml` | One Blade page with a `$step` variable |
+| Section 1 (partial view) | `Views/Applications/_ApplicantInfoSection.cshtml` | `@include('applications.sections.info')` |
+| Section 2 (view component) | `ViewComponents/ResidenceHistoryViewComponent.cs` + `Views/Shared/Components/ResidenceHistory/Default.cshtml` | A Blade class component with its own query (`<x-residence-history />`) |
+| Summary | `Views/Applications/_SummarySection.cshtml`. Renders the same partial and component, read-only. | An `@include` of both, with an `editable => false` flag |
+| Editable or read-only | `Model.IsEditing(section)`, computed on the server from owner + Draft/Returned + current step | A `@can('update', $application)` check inside the partial |
+| Which button was clicked | `<button name="command" value="continue">`, and the action takes a `string command` parameter | `$request->input('command')` |
+
+### Concepts
+
+| This repo | What it is | Laravel equivalent |
+|---|---|---|
+| `ViewComponent` class + `InvokeAsync(...)` | A reusable piece of UI with its own logic and data loading. Looked up in `Views/Shared/Components/<Name>/Default.cshtml`. | Blade class component (`app/View/Components`) |
+| `<vc:residence-history application-id="Model.Id" editable="false">` | Tag-helper syntax to invoke a view component. PascalCase becomes kebab-case. Needs `@addTagHelper *, RentalApp.Web` in `_ViewImports.cshtml`. | `<x-residence-history :application-id="$id" />` |
+| `return ViewComponent("ResidenceHistory", new { applicationId, editable })` in `ResidencesController.List` | A controller action returns just the component's HTML, which is how the list refreshes after the modal. | Returning `view('components.residence-history')` from a route |
+| `[Bind(Prefix = "ApplicantInfo")] ApplicantInfoSection applicantInfo` | Binds the form fields `ApplicantInfo.FullName`, ... into a small object. The prefix matches what `asp-for="ApplicantInfo.FullName"` generated. | `$request->input('applicant_info')` with dot-notation rules (`applicant_info.full_name`) |
+| `RedirectToAction(nameof(Details), new { id, step })` after saving | **Post/Redirect/Get**, so a browser refresh does not re-post. | `return redirect()->route(...)` after a POST |
+| `return View(nameof(Details), model)` on invalid | Re-render the same page with `ModelState` errors and the posted values. | `back()->withErrors()->withInput()`, except no redirect is needed |
+| `ModelState.Clear()` | Drop binding errors for fields the current step did not post. | Validating only the rules for the current step |
+| `IValidatableObject.Validate(...)` on `ResidenceFormViewModel` | Cross-field rules (move-out after move-in, not in the future). | `'move_out' => 'after_or_equal:move_in'` |
+| `validationContext.GetService(typeof(TimeProvider))` | Resolve a service inside validation. | `app(Clock::class)` inside a custom Rule |
+| `<input asp-for="MoveInDate" type="date" asp-format="{0:yyyy-MM-dd}">` | A `DateOnly` field. The browser date picker needs ISO format. | `value="{{ $date->format('Y-m-d') }}"` |
+| `formnovalidate` + `class="cancel"` on Back | Skips jQuery client-side validation for that button. | `formnovalidate` |
+| `disabled="@(!Model.CanSubmit)"` | Razor drops the attribute when the value is `false`. | `@disabled(...)` |
+| `Forbid()` / `NotFound()` | 403 / 404. Other people's applications are 404 so their ids are not confirmed. | `abort(403)` / `abort(404)` |
+| `options.Events.OnRedirectToAccessDenied` in `Program.cs` | For AJAX and `/api` requests return 401/403 instead of redirecting to an HTML page. | `$request->expectsJson()` in the auth exception handler |
+| `ApplicationStatusExtensions.Terminal.Contains(a.Status)` | An array `Contains` that EF translates to `IN (...)`. | `whereIn('status', [...])` / `whereNotIn` |
+| `Services/ApplicationPageBuilder.cs` | Builds the page with one projection. `ManagerNotes` is never selected for this page. | A query + API Resource that omits a field |
