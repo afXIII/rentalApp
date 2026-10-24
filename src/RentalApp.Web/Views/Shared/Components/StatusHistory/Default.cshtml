@@ -1,0 +1,28 @@
+@model IReadOnlyList<RentalApp.Web.Models.Applications.StatusHistoryRowViewModel>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-white fw-semibold">History</div>
+    <ul class="list-group list-group-flush">
+        @foreach (var row in Model)
+        {
+            <li class="list-group-item">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span>
+                        @if (row.FromStatus is { } from)
+                        {
+                            <partial name="_StatusBadge" model="from" />
+                            <span class="text-muted">&rarr;</span>
+                        }
+                        <partial name="_StatusBadge" model="row.ToStatus" />
+                    </span>
+                    <span class="small text-muted">@row.ChangedAt.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</span>
+                </div>
+                <div class="small mt-1">by @row.ChangedByName</div>
+                @if (row.Comment is not null)
+                {
+                    <div class="small fst-italic mt-1">&ldquo;@row.Comment&rdquo;</div>
+                }
+            </li>
+        }
+    </ul>
+</div>

@@ -69,6 +69,14 @@ dl.readonly dt {
   color: var(--bs-secondary-color);
 }
 
+.notes-text {
+  white-space: pre-line;
+}
+
+.fine-print {
+  font-size: .75rem;
+}
+
 .grid-table th.sortable {
   cursor: pointer;
   user-select: none;

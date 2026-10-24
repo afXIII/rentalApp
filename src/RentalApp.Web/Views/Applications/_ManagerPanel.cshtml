@@ -1,15 +1,45 @@
 @model RentalApp.Web.Models.Applications.ApplicationPageViewModel
 
-<div class="card shadow-sm">
-    <div class="card-header bg-white fw-semibold">Review</div>
-    <div class="card-body">
-        @if (Model.ClaimedByName is not null)
-        {
-            <p class="small mb-0">Claimed by <strong>@Model.ClaimedByName</strong></p>
-        }
-        else
-        {
-            <p class="small text-muted mb-0">Not claimed.</p>
-        }
+<div class="d-grid gap-3">
+    <div class="card shadow-sm">
+        <div class="card-header bg-white fw-semibold">Review</div>
+        <div class="card-body">
+            @if (Model.ClaimedByName is not null)
+            {
+                <p class="small mb-2">Claimed by <strong>@Model.ClaimedByName</strong></p>
+            }
+
+            @if (Model.CanClaim)
+            {
+                <form asp-controller="Review" asp-action="Claim" asp-route-id="@Model.Id" method="post">
+                    <button type="submit" class="btn btn-primary w-100">Claim for review</button>
+                </form>
+            }
+            else if (Model.CanReview)
+            {
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-primary"
+                            data-modal-url="@Url.Action("Complete", "Review", new { id = Model.Id })" data-refresh="page">
+                        Complete review
+                    </button>
+                    <form asp-controller="Review" asp-action="Release" asp-route-id="@Model.Id" method="post" class="d-grid">
+                        <button type="submit" class="btn btn-outline-secondary">Release to queue</button>
+                    </form>
+                </div>
+            }
+            else if (Model.Status == ApplicationStatus.UnderReview)
+            {
+                <p class="small text-muted mb-0">Another property manager is reviewing this application.</p>
+            }
+            else
+            {
+                <p class="small text-muted mb-0">
+                    @(Model.Status.IsTerminal() ? "This application is closed." : "Nothing to review until the applicant submits.")
+                </p>
+            }
+        </div>
     </div>
+
+    <vc:manager-notes application-id="Model.Id"></vc:manager-notes>
+    <vc:status-history application-id="Model.Id"></vc:status-history>
 </div>

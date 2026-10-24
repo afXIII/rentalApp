@@ -461,3 +461,22 @@ One URL (`/Applications/Details/{id}?step=...`), one view model (`Models/Applica
 | `options.Events.OnRedirectToAccessDenied` in `Program.cs` | For AJAX and `/api` requests return 401/403 instead of redirecting to an HTML page. | `$request->expectsJson()` in the auth exception handler |
 | `ApplicationStatusExtensions.Terminal.Contains(a.Status)` | An array `Contains` that EF translates to `IN (...)`. | `whereIn('status', [...])` / `whereNotIn` |
 | `Services/ApplicationPageBuilder.cs` | Builds the page with one projection. `ManagerNotes` is never selected for this page. | A query + API Resource that omits a field |
+
+## Phase 6: Review queue, review modal, history, manager notes
+
+### Commands run in this phase
+
+No new packages. The flow was smoke-tested with two manager sessions and one applicant session (three cookie jars): claim, a second manager trying to claim and complete (refused), notes, Return without a comment (422), Return, applicant fix and resubmit, claim, Approve. Then the applicant's page was checked to confirm the notes text never appears in it.
+
+### Concepts
+
+| This repo | What it is | Laravel equivalent |
+|---|---|---|
+| `Controllers/ReviewController.cs` `Claim` / `Release` | Plain POST forms that redirect back with a flash message. | `Route::post('/applications/{a}/claim')` + `back()->with(...)` |
+| `Complete` (GET partial + POST) | The review modal. Outcome radio + comment. The success path reloads the page (`data-refresh="page"`). | A modal form posting to a controller |
+| `ReviewFormViewModel : IValidatableObject` | Comment required only for Return and Deny. The domain enforces it again. | `'comment' => 'required_if:outcome,return,deny'` |
+| `ViewComponents/StatusHistoryViewComponent.cs` | Loads and renders who / when / comment. Returns `Content("")` unless the viewer is a property manager. | A Blade component wrapped in `@role('manager')` |
+| `ViewComponents/ManagerNotesViewComponent.cs` | The only place notes are read for display. It has the same role check. | Same |
+| `UserClaimsPrincipal` inside a view component | The current user, as `User` is in a controller. | `auth()->user()` |
+| `ExecuteUpdateAsync(s => s.SetProperty(a => a.ManagerNotes, ...))` | A single `UPDATE ... SET` without loading the entity. It also skips the concurrency token, so saving notes never conflicts with a review. | `Application::whereKey($id)->update([...])` |
+| `<partial name="_StatusBadge" model="row.ToStatus" />` | A tiny partial reused in the header, the history, and the list. | `@include('partials.status-badge')` / `<x-status-badge>` |

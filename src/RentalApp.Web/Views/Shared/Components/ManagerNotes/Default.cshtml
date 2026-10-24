@@ -1,0 +1,22 @@
+@model RentalApp.Web.Models.Applications.ManagerNotesViewModel
+
+<div id="manager-notes" class="card shadow-sm">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <span class="fw-semibold">Manager notes</span>
+        <button type="button" class="btn btn-sm btn-outline-secondary"
+                data-modal-url="@Url.Action("Notes", "Review", new { id = Model.ApplicationId })"
+                data-refresh-target="#manager-notes"
+                data-refresh-url="@Url.Action("NotesPanel", "Review", new { id = Model.ApplicationId })">Edit</button>
+    </div>
+    <div class="card-body small">
+        @if (string.IsNullOrWhiteSpace(Model.Notes))
+        {
+            <span class="text-muted fst-italic">No notes.</span>
+        }
+        else
+        {
+            <div class="notes-text">@Model.Notes</div>
+        }
+        <div class="text-muted mt-2 fine-print">Visible to property managers only.</div>
+    </div>
+</div>
