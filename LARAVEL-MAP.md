@@ -116,25 +116,28 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:5155/
 
 ### Razor syntax vs Blade
 
-Paths in the last column are relative to `src/RentalApp.Web/Views/`. "Not yet" means the template does not use it and it will first appear in a later phase.
+Paths in the last column are relative to `src/RentalApp.Web/Views/`. This table was written in Phase 0 and updated at the end, so it points at the finished views. (Phase 0's `Home/Privacy.cshtml` and `Shared/_ValidationScriptsPartial.cshtml` were removed in Phase 2.)
 
 | Razor | Blade | See it in this repo |
 |---|---|---|
-| `@model SomeViewModel` at top of file | No equivalent (views are untyped) | `Shared/Error.cshtml` line 1 |
-| `@Model.Name` | `{{ $name }}` (both HTML-escape) | `Shared/Error.cshtml` line 12 (`@Model.RequestId`) |
-| `@if (x) { ... }` | `@if ... @endif` | `Shared/Error.cshtml` line 9 |
-| `@foreach (var i in items) { ... }` | `@foreach ... @endforeach` | Not yet. First list page in Phase 4. |
-| `@{ ... }` code block | `@php ... @endphp` | `Home/Index.cshtml` line 1, `Home/Privacy.cshtml` line 1, `_ViewStart.cshtml` line 1 |
-| `ViewData["Title"] = "x"` then `@ViewData["Title"]` | `@section('title', 'x')` then `@yield('title')` | Set in `Home/Privacy.cshtml` line 2, read in `Shared/_Layout.cshtml` line 6 |
-| `@RenderBody()` | `@yield('content')` / `{{ $slot }}` | `Shared/_Layout.cshtml` line 36 |
-| `@RenderSection("Scripts")` in the layout | `@stack('scripts')` | `Shared/_Layout.cshtml` line 48 |
-| `@section Scripts { ... }` in a page | `@push('scripts')` | Not yet. First form page in Phase 2. |
-| `<partial name="_Thing" model="x" />` | `@include('thing', [...])` | Not yet. Phase 2 forms include `_ValidationScriptsPartial`. |
-| `<a asp-controller="Home" asp-action="Privacy">` (tag helper) | `<a href="{{ route('home.privacy') }}">` | `Shared/_Layout.cshtml` lines 16, 24, 27, 42 |
-| `asp-route-id="5"` on a link | second argument to `route()` | Not yet. Edit links in Phase 4. |
-| `asp-append-version="true"` on css/js | `mix()` / Vite asset hashing | `Shared/_Layout.cshtml` lines 9, 10, 47 |
-| `~/css/site.css` (`~` means web root) | `asset('css/site.css')` | `Shared/_Layout.cshtml` line 9 |
-| `@Html.Raw(x)` | `{!! $x !!}` | Not yet. Avoided unless needed. |
+| `@model SomeViewModel` at top of file | No equivalent (views are untyped) | First line of almost every view, e.g. `Applications/Details.cshtml` |
+| `@Model.Name` | `{{ $name }}` (both HTML-escape) | `Applications/_ApplicationHeader.cshtml` (`@Model.Unit.PropertyName`) |
+| `@if (x) { ... }` | `@if ... @endif` | `Applications/_ManagerPanel.cshtml` |
+| `@foreach (var i in items) { ... }` | `@foreach ... @endforeach` | `Shared/_UnitTable.cshtml` |
+| `@switch (x) { case ...: }` | `@switch ... @case` | `Applications/_CurrentSection.cshtml` |
+| `@{ ... }` code block | `@php ... @endphp` | `Applications/Details.cshtml` (the step list), `_ViewStart.cshtml` |
+| `ViewData["Title"] = "x"` then `@ViewData["Title"]` | `@section('title', 'x')` then `@yield('title')` | Set in `Properties/Index.cshtml`, read in `Shared/_Layout.cshtml` `<title>` |
+| `@RenderBody()` | `@yield('content')` / `{{ $slot }}` | `Shared/_Layout.cshtml` |
+| `@RenderSection("Scripts", required: false)` in the layout | `@stack('scripts')` | `Shared/_Layout.cshtml` |
+| `@section Scripts { ... }` in a page | `@push('scripts')` | `Applications/Index.cshtml` (loads `grid.js`) |
+| `<partial name="_Thing" model="x" />` | `@include('thing', [...])` | `Properties/Details.cshtml` → `Shared/_UnitTable.cshtml` |
+| `<vc:name attr="...">` | `<x-name :attr="..." />` | `Applications/_ManagerPanel.cshtml` (`<vc:status-history>`) |
+| `<a asp-controller="Properties" asp-action="Details">` (tag helper) | `<a href="{{ route('properties.show') }}">` | `Properties/_PropertyTable.cshtml` |
+| `asp-route-id="@x.Id"` on a link or form | second argument to `route()` | `Properties/_PropertyTable.cshtml`, `Applications/_ManagerPanel.cshtml` |
+| `<form asp-action="X" method="post">` | `<form action="{{ route(...) }}" method="POST">@csrf` | `Applications/Details.cshtml`. The tag helper adds the antiforgery token itself. |
+| `asp-append-version="true"` on css/js | `mix()` / Vite asset hashing | `Shared/_Layout.cshtml` |
+| `~/css/site.css` (`~` means web root) | `asset('css/site.css')` | `Shared/_Layout.cshtml` |
+| `@Html.Raw(x)` | `{!! $x !!}` | Not used anywhere, on purpose: everything is HTML-encoded. |
 
 ### CLI
 
@@ -204,7 +207,7 @@ It produced three files in `Data/Migrations/`:
 dotnet ef database update --project src/RentalApp.Web
 ```
 
-Laravel: `php artisan migrate`. Creates `src/RentalApp.Web/rentalapp.db` and records applied migrations in the `__EFMigrationsHistory` table, which is Laravel's `migrations` table. Roll back with `dotnet ef database update <PreviousMigrationName>`, or `0` for all. In Phase 3 the app will do this automatically on startup and this command becomes optional.
+Laravel: `php artisan migrate`. Creates `src/RentalApp.Web/rentalapp.db` and records applied migrations in the `__EFMigrationsHistory` table, which is Laravel's `migrations` table. Roll back with `dotnet ef database update <PreviousMigrationName>`, or `0` for all. Since Phase 2 the app does this automatically on startup and this command is optional. (Phase 1 used SQLite; Phase 2 switched to SQL Server, so the `rentalapp.db` file below no longer exists.)
 
 **7. Look at the result**
 
@@ -242,7 +245,7 @@ dotnet test
 | `Data/Configurations/*.cs` (`IEntityTypeConfiguration<T>`) | Column lengths, indexes, unique constraints, delete rules. Called the **fluent API**. | The body of a migration file: `$table->string('name', 100)`, `->unique()`, `->restrictOnDelete()` |
 | `OnDelete(DeleteBehavior.Restrict / Cascade)` | Foreign key delete rule. | `->restrictOnDelete()` / `->cascadeOnDelete()` |
 | `HasIndex(u => new { u.PropertyId, u.UnitNumber }).IsUnique()` | Composite unique index. | `$table->unique(['property_id', 'unit_number'])` |
-| `Data/MoneyToCentsConverter.cs` + `HasConversion(...)` in `UnitConfiguration` | **Value converter**: decimal dollars in C#, integer cents in the `MonthlyRentCents` column. Also works inside `Where` and `OrderBy`. | Attribute cast, or accessor + mutator |
+| `Data/MoneyToCentsConverter.cs` + `HasConversion(...)` in `UnitConfiguration` (`Data/Configurations/PropertyAndUnitConfiguration.cs`) | **Value converter**: decimal dollars in C#, integer cents in the `MonthlyRentCents` column. Also works inside `Where` and `OrderBy`. | Attribute cast, or accessor + mutator |
 | `Data/Migrations/` | Generated migrations. | `database/migrations/` |
 | `ConnectionStrings:Default` in `appsettings.json` | Connection string. | `DB_*` keys in `.env` |
 | `builder.Services.AddDbContext<AppDbContext>(...)` in `Program.cs` | Registers the context in the DI container as **scoped**, one instance per HTTP request. Controllers and services receive it through their constructor. | A binding in a service provider. In Laravel the DB connection is global via facades, here it is always injected. |
@@ -521,3 +524,49 @@ Laravel: `php artisan route:list` + Scribe / L5-Swagger for the docs.
 | `wwwroot/js/grid.js` | Fetches each page, renders rows with `textContent` (never `innerHTML`, so user data cannot inject HTML), and keeps filters / sort / page in the URL. | Vanilla JS / Alpine on a JSON endpoint |
 | `@section Scripts { <script src="~/js/grid.js"> }` | Adds a script only to this page. | `@push('scripts')` |
 | `Data/UtcDateTimeConverter.cs` + `ConfigureConventions` in `AppDbContext` | Every `DateTime` read from SQL Server is marked UTC, so JSON gets a `Z` and `ToLocalTime()` works. Applies model-wide in one line. | `'timezone' => 'UTC'` + datetime casts |
+
+## Phase 8: Cleanup and README
+
+### Commands run in this phase
+
+```bash
+dotnet ef migrations has-pending-model-changes --project src/RentalApp.Web   # still one migration, no drift
+dotnet build                                                                 # 0 warnings, 0 errors
+dotnet test
+```
+
+### What changed
+
+- `README.md`: setup for LocalDB and for a container, seeded logins, a requirement-to-file table, bonus status, and design decisions.
+- `app.UseHttpsRedirection()` moved into the non-Development branch next to `UseHsts()`. Under the plain-HTTP dev profile it only logged a "failed to determine the https port" warning. Laravel: `URL::forceScheme('https')` only in production.
+- The Phase 0 Razor table above now points at the finished views.
+
+## Every command used in this repo
+
+| Command | What it does | Laravel equivalent |
+|---|---|---|
+| `dotnet new sln -n RentalApp -o RentalApp` | Create an empty solution | - |
+| `dotnet new mvc -n RentalApp.Web -o src/RentalApp.Web` | Scaffold the MVC app | `laravel new` |
+| `dotnet new xunit -n RentalApp.Tests -o tests/RentalApp.Tests` | Scaffold the test project | `tests/` + `phpunit.xml` |
+| `dotnet sln add <projects>` | Register projects in the solution | - |
+| `dotnet add tests/RentalApp.Tests reference src/RentalApp.Web` | Let tests use app classes | PSR-4 autoload |
+| `dotnet new gitignore` / `dotnet new editorconfig` | Standard repo files | shipped `.gitignore` / `pint.json` |
+| `dotnet new tool-manifest` + `dotnet tool install dotnet-ef` | Pin the EF CLI to the repo | `require-dev` |
+| `dotnet tool restore` | Install the pinned tools after cloning | `composer install` (dev tools) |
+| `dotnet add <project> package <Name> [--version x]` | Add a NuGet package | `composer require` |
+| `dotnet remove <project> package <Name>` | Remove a package | `composer remove` |
+| `dotnet build` | Compile everything | - (PHPStan is the closest) |
+| `dotnet test` | Build and run all tests | `php artisan test` |
+| `dotnet run --project src/RentalApp.Web` / `dotnet watch` | Run / run with hot reload | `php artisan serve` |
+| `dotnet ef migrations add <Name> --project src/RentalApp.Web --output-dir Data/Migrations` | Generate a migration from the entities | `php artisan make:migration` (but generated) |
+| `dotnet ef migrations remove --project src/RentalApp.Web` | Delete the last unapplied migration | delete the file |
+| `dotnet ef database update [--project ...] [<Migration>]` | Apply (or roll back to) migrations | `php artisan migrate` / `migrate:rollback` |
+| `dotnet ef migrations has-pending-model-changes --project src/RentalApp.Web` | Check entities vs last migration | - |
+| `dotnet user-secrets init` / `set <key> <value>` (`--project src/RentalApp.Web`) | Local secrets outside the repo | `.env` |
+| `dotnet package search <Name> --exact-match` | List a package's versions | `composer show -a <pkg>` |
+| `container system start` | Start Apple's container service (after a reboot) | Docker Desktop / `sail up` |
+| `container volume create rentalapp-sqldata` + `container run ...` (Phase 2) | Create the SQL Server container | `sail up` |
+| `container start rentalapp-sql` / `container stop rentalapp-sql` | Start / stop it | `sail start` / `sail stop` |
+| `container logs rentalapp-sql` | Server logs | `sail logs mysql` |
+| `container exec rentalapp-sql /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P '...' -d RentalApp -Q "..."` | Run SQL inside the container | `sail mysql` / `tinker` |
+| `node --check <file.js>` | Syntax-check a script | - |
