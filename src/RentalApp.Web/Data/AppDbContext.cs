@@ -18,6 +18,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<ApplicationStatusHistory> ApplicationStatusHistory => Set<ApplicationStatusHistory>();
     public DbSet<Lease> Leases => Set<Lease>();
 
+    // Model-wide conventions, applied to every property of a type (and its nullable form).
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>();
+    }
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         // Must run first: it configures the Identity tables.

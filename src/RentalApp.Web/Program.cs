@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
@@ -18,7 +19,21 @@ builder.Services.AddControllersWithViews(options =>
 
     // Every action requires a signed-in user unless it is marked [AllowAnonymous].
     options.Filters.Add(new AuthorizeFilter());
-});
+})
+// The JSON API writes enums by name ("UnderReview"), not number.
+.AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+
+// The OpenAPI generator reads these (minimal-API) JSON options, so the document shows enum names too.
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+
+// OpenAPI document for the JSON endpoints ([ApiController] only). Served at /openapi/v1.json.
+builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document, _, _) =>
+{
+    document.Info.Title = "RentalApp API";
+    document.Info.Description = "JSON endpoints used by the RentalApp pages. Authenticated with the site's sign-in cookie.";
+    return Task.CompletedTask;
+}));
 
 // Registers AppDbContext as a scoped service: one instance per HTTP request.
 var connectionString = builder.Configuration.GetConnectionString("Default")
@@ -66,6 +81,7 @@ builder.Services.AddScoped<DatabaseInitializer>();
 builder.Services.AddScoped<DataSeeder>();
 builder.Services.AddScoped<ApplicationWorkflow>();
 builder.Services.AddScoped<ApplicationPageBuilder>();
+builder.Services.AddScoped<ApplicationListService>();
 
 var app = builder.Build();
 
@@ -92,6 +108,12 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+    app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "RentalApp API"));
+}
 
 app.MapControllerRoute(
     name: "default",

@@ -480,3 +480,44 @@ No new packages. The flow was smoke-tested with two manager sessions and one app
 | `UserClaimsPrincipal` inside a view component | The current user, as `User` is in a controller. | `auth()->user()` |
 | `ExecuteUpdateAsync(s => s.SetProperty(a => a.ManagerNotes, ...))` | A single `UPDATE ... SET` without loading the entity. It also skips the concurrency token, so saving notes never conflicts with a review. | `Application::whereKey($id)->update([...])` |
 | `<partial name="_StatusBadge" model="row.ToStatus" />` | A tiny partial reused in the header, the history, and the list. | `@include('partials.status-badge')` / `<x-status-badge>` |
+
+## Phase 7: Application list, JSON grid, OpenAPI
+
+### Commands run in this phase
+
+The `Microsoft.AspNetCore.OpenApi` and `Swashbuckle.AspNetCore.SwaggerUI` packages were added in Phase 2 and wired up here:
+
+```bash
+dotnet add src/RentalApp.Web package Microsoft.AspNetCore.OpenApi --version 10.0.12
+dotnet add src/RentalApp.Web package Swashbuckle.AspNetCore.SwaggerUI
+```
+
+Checking the endpoint and the document by hand:
+
+```bash
+curl -b cookies.txt "http://localhost:5155/api/applications?status=Submitted&sort=property&direction=asc&page=1&pageSize=10"
+curl http://localhost:5155/openapi/v1.json     # the OpenAPI document (Development only)
+open http://localhost:5155/swagger             # Swagger UI over that document
+node --check src/RentalApp.Web/wwwroot/js/grid.js   # syntax check, no bundler in this project
+```
+
+Laravel: `php artisan route:list` + Scribe / L5-Swagger for the docs.
+
+### Concepts
+
+| This repo | What it is | Laravel equivalent |
+|---|---|---|
+| `Controllers/Api/ApplicationsApiController.cs` with `[ApiController]` + `[Route("api/applications")]` | **Attribute routing** (the route is on the class, not in the conventional pattern). `[ApiController]` turns on automatic 400s for bad input and puts the action in the OpenAPI document. | `routes/api.php` + an API controller |
+| `[FromQuery] ApplicationListRequest request` | Binds `?status=&propertyId=&sort=&page=` into one object. | `$request->query()` / a FormRequest |
+| `ActionResult<PagedResult<ApplicationListRow>>` + `Ok(...)` | A typed JSON response, camelCase by default. | `return response()->json(...)` / an API Resource collection |
+| `PagedResult<T>(Rows, Total, Page, PageSize)` | One page plus the filtered total. | `->paginate()` result (`data`, `total`, ...) |
+| `Services/ApplicationListService.cs` `Skip/Take` + `CountAsync` | Paging and counting in SQL (`OFFSET ... FETCH`). | `->paginate($perPage)` |
+| `SortColumns` dictionary | A whitelist from `?sort=` to a column, so the query string can never sort by something arbitrary. | `in_array($sort, $allowed)` before `orderBy($sort)` |
+| `.AddJsonOptions(... JsonStringEnumConverter ...)` + `ConfigureHttpJsonOptions(...)` | Write enums as names. The first is for MVC responses; the second is read by the OpenAPI generator. | An enum cast that serializes `->value` |
+| `builder.Services.AddOpenApi()` + `app.MapOpenApi()` | Generates `/openapi/v1.json` from the `[ApiController]` actions. | L5-Swagger / Scribe |
+| `[EndpointSummary]`, `[EndpointDescription]`, `[Description]` on request properties, `[ProducesResponseType<T>(200)]` | What the document says about the endpoint, parameters, and responses. Declaring any response type turns off the inferred 200, so it is declared too. | Scribe docblock annotations |
+| `app.UseSwaggerUI(...)` | A browsable UI for the document at `/swagger`. | `/api/documentation` (L5-Swagger) |
+| `ViewComponents/DataGridViewComponent.cs` + `Models/Shared/GridDefinition.cs` | A reusable grid. The page passes columns, filters, and the data URL; the component renders the shell. | A Blade component taking a config array |
+| `wwwroot/js/grid.js` | Fetches each page, renders rows with `textContent` (never `innerHTML`, so user data cannot inject HTML), and keeps filters / sort / page in the URL. | Vanilla JS / Alpine on a JSON endpoint |
+| `@section Scripts { <script src="~/js/grid.js"> }` | Adds a script only to this page. | `@push('scripts')` |
+| `Data/UtcDateTimeConverter.cs` + `ConfigureConventions` in `AppDbContext` | Every `DateTime` read from SQL Server is marked UTC, so JSON gets a `Z` and `ToLocalTime()` works. Applies model-wide in one line. | `'timezone' => 'UTC'` + datetime casts |

@@ -1,0 +1,15 @@
+@model RentalApp.Web.Models.Shared.GridDefinition
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">@ViewData["Title"]</h1>
+    @if (User.IsInRole(Roles.Applicant))
+    {
+        <a asp-controller="AvailableUnits" asp-action="Index" class="btn btn-primary">Find a unit</a>
+    }
+</div>
+
+<vc:data-grid definition="Model"></vc:data-grid>
+
+@section Scripts {
+    <script src="~/js/grid.js" asp-append-version="true"></script>
+}

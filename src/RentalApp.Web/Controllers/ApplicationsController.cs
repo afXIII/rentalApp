@@ -1,5 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.EntityFrameworkCore;
+using RentalApp.Web.Data;
 using RentalApp.Web.Domain;
 using RentalApp.Web.Models.Applications;
 using RentalApp.Web.Models.Shared;
@@ -7,8 +10,53 @@ using RentalApp.Web.Services;
 
 namespace RentalApp.Web.Controllers;
 
-public class ApplicationsController(ApplicationWorkflow workflow, ApplicationPageBuilder pages) : AppController
+public class ApplicationsController(AppDbContext db, ApplicationWorkflow workflow, ApplicationPageBuilder pages) : AppController
 {
+    // The list page. Rows come from the JSON endpoint (Api/ApplicationsApiController) through the DataGrid view component.
+    [HttpGet]
+    public async Task<IActionResult> Index(ApplicationStatus? status, int? propertyId)
+    {
+        var properties = await db.Properties
+            .OrderBy(p => p.Name)
+            .Select(p => new SelectListItem(p.Name, p.Id.ToString()))
+            .ToListAsync();
+        var statuses = Enum.GetValues<ApplicationStatus>()
+            .Select(s => new SelectListItem(s.DisplayName(), s.ToString()))
+            .ToList();
+
+        List<GridColumn> columns =
+        [
+            new("id", "#", SortKey: "id"),
+            new("status", "Status", SortKey: "status", Format: "status"),
+            new("propertyName", "Property", SortKey: "property"),
+            new("unitNumber", "Unit", SortKey: "unit"),
+        ];
+        if (IsManager)
+        {
+            columns.Add(new("applicantName", "Applicant", SortKey: "applicant"));
+            columns.Add(new("claimedByName", "Reviewer"));
+        }
+
+        columns.Add(new("createdAt", "Started", SortKey: "created", Format: "date"));
+        columns.Add(new("submittedAt", "Submitted", SortKey: "submitted", Format: "date"));
+
+        ViewData["Title"] = IsManager ? "Applications" : "My applications";
+        return View(new GridDefinition
+        {
+            Id = "application-grid",
+            DataUrl = Url.Action("Get", "ApplicationsApi")!,
+            Columns = columns,
+            Filters =
+            [
+                new GridFilter("status", "Status", statuses, status?.ToString()),
+                new GridFilter("propertyId", "Property", properties, propertyId?.ToString()),
+            ],
+            DefaultSort = "created",
+            RowLink = Url.Action(nameof(Details)) + "/{id}",
+            EmptyText = IsManager ? "No applications match these filters." : "You have no applications yet.",
+        });
+    }
+
     [HttpPost]
     [Authorize(Roles = Roles.Applicant)]
     public async Task<IActionResult> Create(int unitId)
